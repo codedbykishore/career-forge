@@ -19,6 +19,8 @@ import {
   type Role, type SkillGapReport, type SkillGap, type Roadmap,
 } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { BedrockBadge } from '@/components/ui/bedrock-badge';
+import { BedrockLoadingSkeleton } from '@/components/ui/skeleton';
 
 /* ─── Icon map for roles ─────────────────────────────────────────────────── */
 const ROLE_ICONS: Record<string, React.ReactNode> = {
@@ -138,11 +140,14 @@ export function SkillGapShell() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Skill Gap Analysis</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Identify gaps between your current skills and target roles — powered by Amazon&nbsp;Bedrock
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Skill Gap Analysis</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Identify gaps between your current skills and target roles
+          </p>
+        </div>
+        <BedrockBadge />
       </div>
 
       {/* ─── Role Picker ─────────────────────────────────────────────────── */}
@@ -193,6 +198,14 @@ export function SkillGapShell() {
         {analysing ? 'Analysing…' : 'Analyse Skill Gap'}
         {!analysing && <ArrowRight className="h-4 w-4 ml-1" aria-hidden="true" />}
       </Button>
+
+      {/* Bedrock loading state */}
+      {analysing && (
+        <BedrockLoadingSkeleton
+          title="Analyzing your skill profile…"
+          description="Bedrock is comparing your GitHub projects against role requirements. This takes 5–10 seconds."
+        />
+      )}
 
       {/* ─── Results ─────────────────────────────────────────────────────── */}
       {report && (

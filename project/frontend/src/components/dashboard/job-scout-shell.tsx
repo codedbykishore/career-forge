@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { jobMatchApi, tailorApi, resumesApi, type Job, type TrackingStatuses } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { BedrockBadge } from '@/components/ui/bedrock-badge';
 
 // ── Category filter labels ───────────────────────────────────────────────────
 
@@ -447,6 +448,11 @@ export function JobScoutShell() {
 
   return (
     <div className="space-y-6">
+      {/* ── Header with Bedrock badge ─── */}
+      <div className="flex items-center justify-end">
+        <BedrockBadge variant="compact" />
+      </div>
+
       {/* ── Stats cards ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard

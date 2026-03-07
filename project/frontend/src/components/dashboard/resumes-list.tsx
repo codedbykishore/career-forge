@@ -15,6 +15,8 @@ import {
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { BedrockBadge } from '@/components/ui/bedrock-badge';
+import { BedrockLoadingSkeleton } from '@/components/ui/skeleton';
 
 interface Resume {
   id: string;
@@ -170,14 +172,15 @@ export function ResumesList() {
   return (
     <div className="space-y-6">
       {/* Header with generate button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Resumes</h2>
           <p className="text-sm text-muted-foreground">
             {resumes?.length || 0} resume{resumes?.length !== 1 ? 's' : ''} generated
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <BedrockBadge variant="compact" />
           {resumes && resumes.length > 0 && (
             <Button
               variant="outline"
@@ -567,18 +570,10 @@ function ResumeGenerator({
 
           {/* Generation in progress */}
           {generateMutation.isPending && (
-            <div className="flex flex-col items-center py-8 space-y-4">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-primary/20" />
-                <div className="absolute inset-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className="font-medium text-sm">Generating your resume…</p>
-                <p className="text-xs text-muted-foreground">
-                  Analyzing projects, ranking by relevance, crafting LaTeX…
-                </p>
-              </div>
-            </div>
+            <BedrockLoadingSkeleton
+              title="Generating your resume…"
+              description="Analyzing projects, ranking by relevance, crafting LaTeX… This takes 5–15 seconds."
+            />
           )}
 
           {/* Error state */}

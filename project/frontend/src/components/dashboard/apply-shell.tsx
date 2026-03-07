@@ -40,6 +40,8 @@ import {
   type TailorResponse,
 } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { BedrockBadge } from '@/components/ui/bedrock-badge';
+import { BedrockLoadingSkeleton } from '@/components/ui/skeleton';
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -441,10 +443,13 @@ function TailoredResumePanel({
   return (
     <Card className="lg:col-span-2">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-          Tailored Resume
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+            Tailored Resume
+          </CardTitle>
+          <BedrockBadge variant="compact" />
+        </div>
         <CardDescription>
           Select a job from Job Scout to auto-generate a resume tailored to the role
         </CardDescription>
@@ -492,24 +497,32 @@ function TailoredResumePanel({
 
         {/* Generate button */}
         {!tailorResult && (
-          <Button
-            className="w-full gap-2"
-            disabled={!selectedJobId || tailorMutation.isPending}
-            onClick={() => tailorMutation.mutate(selectedJobId)}
-          >
-            {tailorMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Tailoring resume...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                Generate Tailored Resume
-                <ArrowRight className="h-4 w-4 ml-auto" aria-hidden="true" />
-              </>
+          <>
+            <Button
+              className="w-full gap-2"
+              disabled={!selectedJobId || tailorMutation.isPending}
+              onClick={() => tailorMutation.mutate(selectedJobId)}
+            >
+              {tailorMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Tailoring resume...
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  Generate Tailored Resume
+                  <ArrowRight className="h-4 w-4 ml-auto" aria-hidden="true" />
+                </>
+              )}
+            </Button>
+            {tailorMutation.isPending && (
+              <BedrockLoadingSkeleton
+                title="Tailoring your resume…"
+                description="Rewriting bullets, injecting ATS keywords, reordering skills for this role."
+              />
             )}
-          </Button>
+          </>
         )}
 
         {/* Result: PDF preview */}

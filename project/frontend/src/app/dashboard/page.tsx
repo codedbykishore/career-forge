@@ -30,6 +30,7 @@ import { ProfileView } from '@/components/dashboard/profile-view';
 import { SkillGapShell } from '@/components/dashboard/skill-gap-shell';
 import { JobScoutShell } from '@/components/dashboard/job-scout-shell';
 import { ApplyTrackShell } from '@/components/dashboard/apply-shell';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useToast } from '@/hooks/use-toast';
 import { userApi, authApi, projectsApi, resumesApi, jobMatchApi, skillGapApi } from '@/lib/api';
 import type { User as UserType } from '@/lib/api';
@@ -198,10 +199,18 @@ function DashboardInner() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* ─── Mobile sidebar overlay ──────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ─── Sidebar ─────────────────────────────────────────────────────── */}
       <aside
-        className={`${sidebarOpen ? 'w-64' : 'w-16'
-          } shrink-0 border-r border-border/60 bg-card backdrop-blur-sm transition-all duration-300 sticky top-0 h-screen flex flex-col overflow-hidden`}
+        className={`${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-16 md:translate-x-0'
+          } fixed md:relative z-40 md:z-auto shrink-0 border-r border-border/60 bg-card backdrop-blur-sm transition-all duration-300 h-screen flex flex-col overflow-hidden`}
       >
         {/* Brand */}
         <div className="flex h-14 items-center gap-2 border-b border-border/60 px-3">
@@ -322,18 +331,20 @@ function DashboardInner() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 p-6 animate-fade-in-up">
-          {activeTab === 'resumes' && <ResumesList />}
-          {/* Always keep ProjectsList mounted so import state survives tab switches */}
-          <div className={activeTab !== 'projects' ? 'hidden' : ''}>
-            <ProjectsList />
-          </div>
-          {activeTab === 'jobs' && <JobsList />}
-          {activeTab === 'templates' && <TemplatesList />}
-          {activeTab === 'skill-gap' && <SkillGapShell />}
-          {activeTab === 'job-scout' && <JobScoutShell />}
-          {activeTab === 'apply' && <ApplyTrackShell />}
-          {activeTab === 'profile' && <ProfileView externalRefreshKey={profileRefreshKey} />}
+        <div className="flex-1 p-4 sm:p-6 animate-fade-in-up">
+          <ErrorBoundary>
+            {activeTab === 'resumes' && <ResumesList />}
+            {/* Always keep ProjectsList mounted so import state survives tab switches */}
+            <div className={activeTab !== 'projects' ? 'hidden' : ''}>
+              <ProjectsList />
+            </div>
+            {activeTab === 'jobs' && <JobsList />}
+            {activeTab === 'templates' && <TemplatesList />}
+            {activeTab === 'skill-gap' && <SkillGapShell />}
+            {activeTab === 'job-scout' && <JobScoutShell />}
+            {activeTab === 'apply' && <ApplyTrackShell />}
+            {activeTab === 'profile' && <ProfileView externalRefreshKey={profileRefreshKey} />}
+          </ErrorBoundary>
         </div>
       </main>
 
