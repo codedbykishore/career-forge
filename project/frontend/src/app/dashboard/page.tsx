@@ -18,9 +18,9 @@ import {
   Settings,
   Menu,
   User,
-  Zap,
   Upload,
   X,
+  Map,
 } from 'lucide-react';
 import { ProjectsList } from '@/components/dashboard/projects-list';
 import { JobsList } from '@/components/dashboard/jobs-list';
@@ -31,6 +31,7 @@ import { SkillGapShell } from '@/components/dashboard/skill-gap-shell';
 import { JobScoutShell } from '@/components/dashboard/job-scout-shell';
 import { ApplyTrackShell } from '@/components/dashboard/apply-shell';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { ProjectRoadmapShell } from '@/components/dashboard/project-roadmap-shell';
 import { useToast } from '@/hooks/use-toast';
 import { userApi, authApi, projectsApi, resumesApi, jobMatchApi, skillGapApi } from '@/lib/api';
 import type { User as UserType } from '@/lib/api';
@@ -39,6 +40,7 @@ import type { User as UserType } from '@/lib/api';
 const TABS = [
   { key: 'resumes', label: 'Resumes', icon: FileText },
   { key: 'projects', label: 'Projects', icon: FolderGit2 },
+  { key: 'roadmap', label: 'Roadmap', icon: Map },
   { key: 'skill-gap', label: 'Skill Gap', icon: Target },
   { key: 'job-scout', label: 'Job Scout', icon: Search },
   { key: 'apply', label: 'Apply & Track', icon: Send },
@@ -116,12 +118,14 @@ function DashboardInner() {
   /* Handle OAuth callback query params */
   useEffect(() => {
     const github = searchParams.get('github');
+    const google = searchParams.get('google');
     const token = searchParams.get('token');
     const error = searchParams.get('error');
 
-    if (github === 'connected') {
+    if (github === 'connected' || google === 'connected') {
       if (token) localStorage.setItem('token', token);
-      toast({ title: 'GitHub connected!', description: 'Your account is now linked.' });
+      const provider = github ? 'GitHub' : 'Google';
+      toast({ title: `${provider} connected!`, description: 'Your account is now linked.' });
       router.replace('/dashboard');
     }
     if (error) {
@@ -189,6 +193,7 @@ function DashboardInner() {
   const tabDescription: Record<TabKey, string> = {
     resumes: 'Generate and manage your LaTeX resumes',
     projects: 'Your imported projects and repositories',
+    roadmap: 'AI-generated project-based learning paths',
     jobs: 'Job descriptions to tailor resumes to',
     templates: 'LaTeX templates for your resumes',
     'skill-gap': 'AI-powered gap analysis against target roles',
@@ -219,10 +224,8 @@ function DashboardInner() {
               href="/"
               className="group flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/25 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/30 group-hover:scale-105">
-                <Zap className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <span className="font-bold text-sm tracking-tight">CareerForge</span>
+              <img src="/logo.svg" alt="CareerForge logo" className="h-10 w-10 rounded-full bg-white p-0.5 object-contain shadow-md shadow-primary/25 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/30 group-hover:scale-105" />
+              <span className="font-bold text-base tracking-tight">CareerForge</span>
             </Link>
           )}
           <Button
@@ -287,7 +290,9 @@ function DashboardInner() {
                   ? 'Job Scout'
                   : activeTab === 'apply'
                     ? 'Apply & Track'
-                    : activeTab}
+                    : activeTab === 'roadmap'
+                      ? 'Project Roadmap'
+                      : activeTab}
             </h1>
             <p className="text-xs text-muted-foreground truncate hidden sm:block">
               {tabDescription[activeTab]}
@@ -321,7 +326,7 @@ function DashboardInner() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => authApi.githubLogin()}
+                onClick={() => authApi.githubInstall()}
               >
                 <Github className="h-3.5 w-3.5" aria-hidden="true" />
                 Connect GitHub
@@ -340,6 +345,7 @@ function DashboardInner() {
             </div>
             {activeTab === 'jobs' && <JobsList />}
             {activeTab === 'templates' && <TemplatesList />}
+            {activeTab === 'roadmap' && <ProjectRoadmapShell />}
             {activeTab === 'skill-gap' && <SkillGapShell />}
             {activeTab === 'job-scout' && <JobScoutShell />}
             {activeTab === 'apply' && <ApplyTrackShell />}
@@ -441,7 +447,7 @@ function DashboardInner() {
                   <Button
                     variant="outline"
                     className="w-full gap-2"
-                    onClick={() => authApi.githubLogin()}
+                    onClick={() => authApi.githubInstall()}
                   >
                     <Github className="h-4 w-4" aria-hidden="true" />
                     Connect GitHub
