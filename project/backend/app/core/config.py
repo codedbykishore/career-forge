@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     
     # GitHub App (replaces OAuth App — see M1.6)
     GITHUB_APP_ID: Optional[str] = None
-    GITHUB_APP_SLUG: str = "careerforge"
+    GITHUB_APP_SLUG: str = "career-forge-app"
     GITHUB_APP_CLIENT_ID: Optional[str] = None
     GITHUB_APP_CLIENT_SECRET: Optional[str] = None
     GITHUB_APP_PRIVATE_KEY_SECRET: str = "careerforge/github-app-private-key"
