@@ -18,12 +18,10 @@ import {
   Kanban,
   Plus,
   FileText,
-  ArrowRight,
   CheckCircle2,
   XCircle,
   PhoneCall,
   Loader2,
-  Download,
   Trash2,
   Calendar,
   Building2,
@@ -33,11 +31,9 @@ import {
 } from 'lucide-react';
 import {
   applicationsApi,
-  tailorApi,
   jobMatchApi,
   type Application,
   type Job,
-  type TailorResponse,
 } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { BedrockBadge } from '@/components/ui/bedrock-badge';
@@ -101,9 +97,9 @@ function ApplicationCard({
         >
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-semibold truncate">{app.roleTitle}</h4>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-                <Building2 className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+              <h4 className="text-sm font-semibold truncate">{app.roleTitle}</h4>
+              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
                 {app.companyName}
               </p>
             </div>
@@ -121,21 +117,21 @@ function ApplicationCard({
             </Button>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-0.5">
-              <Calendar className="h-2.5 w-2.5" aria-hidden="true" />
+              <Calendar className="h-3 w-3" aria-hidden="true" />
               {formatDate(app.appliedAt)}
             </span>
             {app.resumeId && (
               <span className="flex items-center gap-0.5 text-primary">
-                <FileText className="h-2.5 w-2.5" aria-hidden="true" />
+                <FileText className="h-3 w-3" aria-hidden="true" />
                 Resume
               </span>
             )}
           </div>
 
           {app.notes && (
-            <p className="text-[10px] text-muted-foreground line-clamp-2">{app.notes}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2">{app.notes}</p>
           )}
         </div>
       )}
@@ -165,13 +161,13 @@ function KanbanColumn({
   return (
     <div className="flex-1 min-w-[200px]">
       <div className="flex items-center gap-2 mb-3 px-1">
-        <div className={`flex items-center justify-center h-5 w-5 rounded ${bg}`}>
-          <Icon className={`h-3 w-3 ${color}`} aria-hidden="true" />
+        <div className={`flex items-center justify-center h-6 w-6 rounded ${bg}`}>
+          <Icon className={`h-3.5 w-3.5 ${color}`} aria-hidden="true" />
         </div>
-        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm font-semibold">{label}</span>
         <Badge
           variant="secondary"
-          className="ml-auto text-[10px] px-1.5 font-mono"
+          className="ml-auto text-xs px-1.5 font-mono"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
           {apps.length}
@@ -194,7 +190,7 @@ function KanbanColumn({
             ))}
             {provided.placeholder}
             {apps.length === 0 && !snapshot.isDraggingOver && (
-              <p className="text-[10px] text-muted-foreground text-center py-6">
+              <p className="text-xs text-muted-foreground text-center py-6">
                 Drag applications here
               </p>
             )}
@@ -220,11 +216,11 @@ function StatsBar({ applications }: { applications: Application[] }) {
 
   return (
     <div
-      className="flex flex-wrap gap-3 text-xs"
+      className="flex flex-wrap gap-3 text-sm"
       style={{ fontVariantNumeric: 'tabular-nums' }}
     >
       <div className="flex items-center gap-1.5">
-        <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+        <BarChart3 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="text-muted-foreground">Total:</span>
         <span className="font-semibold">{applications.length}</span>
       </div>
@@ -712,13 +708,16 @@ export function ApplyTrackShell() {
     },
   });
 
-  // DnD handler — optimistic update
+  // DnD handler — optimistic update + sync to Job Scout tracking
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       const { draggableId, source, destination } = result;
       if (!destination || destination.droppableId === source.droppableId) return;
 
       const newStatus = destination.droppableId;
+
+      // Find the dragged application to get its jobId for cross-page sync
+      const draggedApp = applications.find((a) => a.applicationId === draggableId);
 
       // Optimistic update in cache
       queryClient.setQueryData(
@@ -733,10 +732,17 @@ export function ApplyTrackShell() {
         }
       );
 
-      // Persist to API
+      // Persist application status to API
       updateMutation.mutate({ applicationId: draggableId, status: newStatus });
+
+      // Sync tracking status back to Job Scout (fire-and-forget)
+      if (draggedApp && !draggedApp.jobId.startsWith('manual-')) {
+        jobMatchApi.track(draggedApp.jobId, newStatus)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['jobs', 'tracking'] }))
+          .catch(() => { /* sync failure is non-critical */ });
+      }
     },
-    [queryClient, userId, updateMutation]
+    [queryClient, userId, updateMutation, applications]
   );
 
   const handleDelete = useCallback(
@@ -753,7 +759,7 @@ export function ApplyTrackShell() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Apply &amp; Track</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Generate tailored resumes and track your application pipeline
+            Track your job applications and manage your pipeline
           </p>
         </div>
         <Button
@@ -770,53 +776,47 @@ export function ApplyTrackShell() {
       {/* Stats bar */}
       <StatsBar applications={applications} />
 
-      {/* Two-panel layout */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Left panel — Tailored resume generator */}
-        <TailoredResumePanel jobs={jobs} />
+      {/* Application Pipeline — full-width Kanban */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Kanban className="h-4 w-4 text-primary" aria-hidden="true" />
+            Application Pipeline
+          </CardTitle>
+          <CardDescription>
+            Drag applications between columns to update status · synced with Job Scout
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {COLUMNS.map((col) => (
+                <KanbanColumn
+                  key={col.key}
+                  columnKey={col.key}
+                  label={col.label}
+                  icon={col.icon}
+                  color={col.color}
+                  bg={col.bg}
+                  apps={columnApps[col.key] || []}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          </DragDropContext>
 
-        {/* Right panel — Kanban board */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Kanban className="h-4 w-4 text-primary" aria-hidden="true" />
-              Application Pipeline
-            </CardTitle>
-            <CardDescription>
-              Drag applications between columns to update status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {COLUMNS.map((col) => (
-                  <KanbanColumn
-                    key={col.key}
-                    columnKey={col.key}
-                    label={col.label}
-                    icon={col.icon}
-                    color={col.color}
-                    bg={col.bg}
-                    apps={columnApps[col.key] || []}
-                    onDelete={handleDelete}
-                  />
-                ))}
+          {!isLoading && applications.length === 0 && (
+            <div className="mt-6 flex flex-col items-center gap-2 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Briefcase className="h-5 w-5 text-primary" aria-hidden="true" />
               </div>
-            </DragDropContext>
-
-            {!isLoading && applications.length === 0 && (
-              <div className="mt-6 flex flex-col items-center gap-2 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <Briefcase className="h-5 w-5 text-primary" aria-hidden="true" />
-                </div>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Your application tracker is empty. Add applications manually or generate tailored resumes from Job Scout.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Your application tracker is empty. Add applications manually or track jobs from Job Scout.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add Application Modal */}
       <AddApplicationModal
