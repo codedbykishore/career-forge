@@ -28,44 +28,58 @@
 
 ---
 
+## ⚠️ Pre-Deploy Manual Checklist  
+> These 6 things cannot be done in code. Do them in order before going live.
+
+- [ ] **1. Create `SkillGapReports` DynamoDB table** (one `aws` command — see step 6.0)
+- [ ] **2. Create EC2 `.env` file** with real `SECRET_KEY`, `DEBUG=False`, `ALLOWED_ORIGINS`, GitHub App credentials (see step 6.0)
+- [ ] **3. EC2 IAM role** — must include `SecretsManagerReadWrite` or GitHub repo ingestion will fail silently (see step 6.1)
+- [ ] **4. Add Amplify URL to GitHub App callback URLs** in GitHub Developer Console (see step 6.2)
+- [ ] **5. Set Amplify environment variables** — `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_GITHUB_CLIENT_ID` (see step 6.2)
+- [ ] **6. Restart backend after Amplify URL is known** — update `ALLOWED_ORIGINS` in `.env` on EC2, then `sudo systemctl restart careerforge` (see step 6.2)
+
+---
+
 ## Tasks
 
 ### 6.0 — Pre-flight: Fix Config for Production
 
-Before provisioning EC2, these code/config changes MUST be made:
+> **Code changes already done on the `production` branch** — these are ✅ and don't need to be touched again.
 
-- [ ] **CORS: make Amplify URL dynamic** — update `project/backend/app/main.py` to read `ALLOWED_ORIGINS` from an env var and append it to the `allow_origins` list:
-  ```python
-  import os
-  extra = [o for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o]
-  allow_origins = ["http://localhost:3000", "http://localhost:3001", ...] + extra
-  ```
-- [ ] **GitHub callback URL** — update GitHub App settings (GitHub Developer Console) to add the Amplify production callback URL: `https://<amplify-url>/api/auth/callback/github`. Also set env var `GITHUB_CALLBACK_URL=https://<amplify-url>/api/auth/callback/github` on EC2.
-- [ ] **Backend `.env` file** — create `project/backend/.env` with:
-  ```
-  APP_ENV=production
-  DEBUG=False
-  SECRET_KEY=<generate-64-char-random>
-  USE_DYNAMO=True
-  AWS_REGION=us-east-1
-  S3_BUCKET=careerforge-pdfs-602664593597
-  BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
-  GITHUB_APP_ID=<value>
-  GITHUB_APP_CLIENT_ID=<value>
-  GITHUB_APP_CLIENT_SECRET=<value>
-  GITHUB_CALLBACK_URL=https://<amplify-url>/api/auth/callback/github
-  ALLOWED_ORIGINS=https://<amplify-url>
-  ```
-- [ ] **Verify `SkillGapReports` DynamoDB table exists** in AWS console (it was not provisioned in M0, only added in M3):
+- [x] ~~**CORS dynamic origins** — `main.py` now reads `ALLOWED_ORIGINS` env var~~ ✅ done in code
+- [x] ~~**`ALLOWED_ORIGINS` field in `config.py`**~~ ✅ done in code
+- [x] ~~**LaTeX timeout bumped** `30s → 60s`~~ ✅ done in code
+- [x] ~~**`DEBUG` guards** — `/docs` hidden when `DEBUG=False`, startup warning on default `SECRET_KEY`~~ ✅ done in code
+
+> **Still needs manual action** (part of the 6-item checklist above):
+
+- [ ] **GitHub App callback URL** — in [GitHub Developer Console](https://github.com/settings/apps) → your app → Callback URLs → add `https://<amplify-url>/api/auth/callback/github`
+- [ ] **Create `SkillGapReports` DynamoDB table** (AWS CLI already configured as `careerforge-dev`):
   ```bash
   aws dynamodb describe-table --table-name SkillGapReports --region us-east-1
-  # If missing:
+  # If it says ResourceNotFoundException, create it:
   aws dynamodb create-table \
     --table-name SkillGapReports \
     --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=reportId,AttributeType=S \
     --key-schema AttributeName=userId,KeyType=HASH AttributeName=reportId,KeyType=RANGE \
     --billing-mode PAY_PER_REQUEST \
     --region us-east-1
+  ```
+- [ ] **Create `project/backend/.env`** for EC2 (never commit this file):
+  ```
+  APP_ENV=production
+  DEBUG=False
+  SECRET_KEY=<run: python3 -c "import secrets; print(secrets.token_hex(32))">
+  JWT_SECRET_KEY=<same command, different value>
+  USE_DYNAMO=True
+  AWS_REGION=us-east-1
+  S3_BUCKET=careerforge-pdfs-602664593597
+  BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
+  GITHUB_APP_ID=<from GitHub Developer Console>
+  GITHUB_APP_CLIENT_ID=<from GitHub Developer Console>
+  GITHUB_APP_CLIENT_SECRET=<from GitHub Developer Console>
+  GITHUB_CALLBACK_URL=https://<amplify-url>/api/auth/callback/github
+  ALLOWED_ORIGINS=https://<amplify-url>
   ```
 
 ### 6.1 — Backend Deployment (EC2)
@@ -137,8 +151,10 @@ Before provisioning EC2, these code/config changes MUST be made:
   - Framework: **Next.js (SSR / standalone)**
   - Build command: `npm run build`
   - Output dir: `.next`
-- [ ] Set environment variables in Amplify console:
+- [ ] Set **all three** environment variables in Amplify console (App settings → Environment variables):
   - `NEXT_PUBLIC_API_URL=http://<ec2-public-ip>` (no trailing slash)
+  - `NEXT_PUBLIC_APP_URL=https://<your-amplify-app-id>.amplifyapp.com` (no trailing slash — must match GitHub App callback URL exactly)
+  - `NEXT_PUBLIC_GITHUB_CLIENT_ID=<GitHub App client ID>` (missing this = "Continue with GitHub" button does nothing)
 - [ ] Trigger deploy → wait for build (~3–5 min)
 - [ ] **Update CORS on backend**: once Amplify URL is known, add it to `ALLOWED_ORIGINS` env var on EC2 and restart: `sudo systemctl restart careerforge`
 - [ ] **Update GitHub App callback URL** in GitHub Developer Console to include `https://<amplify-url>/api/auth/callback/github`
@@ -235,7 +251,7 @@ Run through the complete demo flow on the deployed environment:
 
 2. **`SkillGapReports` table was NOT provisioned in M0** — M0 created 6 tables; M3 added a 7th (`SkillGapReports`). Create it manually before deploying (see step 6.0).
 
-3. **CORS is hardcoded** — `app/main.py` has a hardcoded list of allowed origins that doesn't include the Amplify URL. Add `ALLOWED_ORIGINS` env var support before deploying (see step 6.0).
+3. ~~**CORS is hardcoded**~~ — ✅ Fixed in code on `production` branch. `main.py` now reads `ALLOWED_ORIGINS` env var and merges it into the allowed list at startup. Just set `ALLOWED_ORIGINS=https://<amplify-url>` in the EC2 `.env` and restart.
 
 4. **GitHub callback URL must match** — the GitHub App is currently configured for `http://localhost:3000/api/auth/callback/github`. In production, this MUST be updated to the Amplify URL in both GitHub Developer Console AND the `GITHUB_CALLBACK_URL` env var on EC2.
 
