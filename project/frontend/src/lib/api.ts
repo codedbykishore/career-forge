@@ -152,7 +152,9 @@ export interface Roadmap {
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  // Empty baseURL → relative paths → requests go to same HTTPS origin.
+  // Next.js rewrites proxy /api/* to EC2 server-side (no mixed content).
+  baseURL: '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -419,9 +421,9 @@ export const resumesApi = {
    * Uses fetch (not axios) because EventSource doesn't support POST + auth headers.
    */
   aiEdit: async (id: string, message: string, latex_content: string): Promise<Response> => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    // Use relative URL — proxied to EC2 via Next.js rewrites (no mixed content).
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const response = await fetch(`${baseUrl}/api/resumes/${id}/ai-edit`, {
+    const response = await fetch(`/api/resumes/${id}/ai-edit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

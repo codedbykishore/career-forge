@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// API_URL is a private server-side var (EC2 HTTP address). Falls back to NEXT_PUBLIC_API_URL for local dev.
+const BACKEND_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Derive the correct public base URL — Amplify SSR compute may report an
 // internal hostname in request.url, so we prefer NEXT_PUBLIC_APP_URL or the

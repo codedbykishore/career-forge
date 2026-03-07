@@ -81,8 +81,8 @@ export default function ResumeEditorPage() {
         })
         .catch(() => {
           if (resume.pdf_path) {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            setPdfUrl(`${apiBase}/uploads/pdfs/${resumeId.slice(0, 8)}.pdf`);
+            // Use relative URL — served via Next.js rewrites (avoids mixed content)
+            setPdfUrl(`/uploads/pdfs/${resumeId.slice(0, 8)}.pdf`);
             setCompileStatus('success');
           }
         });
