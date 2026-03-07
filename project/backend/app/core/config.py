@@ -89,8 +89,13 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE_MB: int = 10
     
+    # CORS — comma-separated extra allowed origins for production
+    # Example: ALLOWED_ORIGINS=https://abc123.amplifyapp.com
+    ALLOWED_ORIGINS: str = ""
+
     # LaTeX Compilation
-    LATEX_COMPILER_TIMEOUT: int = 30
+    # 60s timeout: Sonnet generation + pdflatex on t3.micro needs headroom
+    LATEX_COMPILER_TIMEOUT: int = 60
     LATEX_COMPILER_MEMORY_LIMIT: str = "256m"
     
     @property

@@ -5,6 +5,7 @@ A JD-aware, GitHub-grounded resume generation system.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +46,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting CareerForge", version="1.0.0")
+
+    # Warn loudly if insecure defaults are still set
+    if settings.SECRET_KEY == "change-me-in-production" or settings.JWT_SECRET_KEY == "change-me-in-production":
+        logger.warning(
+            "INSECURE SECRET_KEY detected — do NOT run this in production without setting SECRET_KEY and JWT_SECRET_KEY env vars"
+        )
     
     if settings.USE_DYNAMO:
         logger.info("Using DynamoDB for data storage")
@@ -68,25 +75,39 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI application
+# Disable interactive docs in production to avoid exposing API surface
+_docs_url = "/docs" if settings.DEBUG else None
+_redoc_url = "/redoc" if settings.DEBUG else None
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="JD-Aware, GitHub-Grounded LaTeX Resume Agent",
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
 )
 
 # Configure CORS
+# ALLOWED_ORIGINS env var accepts a comma-separated list of extra origins.
+# In production set: ALLOWED_ORIGINS=https://<amplify-url>
+_base_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "https://latex-agent-2dat.vercel.app",
+]
+_extra_origins = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+_all_origins = _base_origins + _extra_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        "https://latex-agent-2dat.vercel.app",
-    ],
+    allow_origins=_all_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
