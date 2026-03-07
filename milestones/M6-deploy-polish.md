@@ -17,7 +17,7 @@
 | Embeddings | Titan Text Embeddings v2 (`amazon.titan-embed-text-v2:0`) | Amazon Bedrock |
 | File storage | PDFs + .tex sources, presigned URLs | S3 (`careerforge-pdfs-602664593597`) |
 | Data store | 9 tables (PAY_PER_REQUEST) | DynamoDB |
-| LaTeX compile | Docker `texlive/texlive:latest` (runs on EC2) | — |
+| LaTeX compile | `latex.ytotech.com` free online API (auto-fallback, no install needed) | — |
 | GitHub auth | GitHub App (private key in Secrets Manager) | AWS Secrets Manager |
 | Job scraping | APScheduler + jobspy, triggered via `POST /api/jobs/scrape` | — (no Lambda) |
 
@@ -77,15 +77,12 @@ Before provisioning EC2, these code/config changes MUST be made:
   - `AmazonS3FullAccess` (scoped to `careerforge-pdfs-602664593597`)
   - `AmazonDynamoDBFullAccess`
   - `SecretsManagerReadWrite` (for GitHub App private key at `careerforge/github-app-private-key`)
-- [ ] SSH in and install dependencies — **Docker is required for LaTeX compilation**:
+- [ ] SSH in and install dependencies — **no Docker needed**, LaTeX compiles via ytotech online API:
   ```bash
   sudo apt update
-  sudo apt install -y python3.11 python3.11-venv nginx git docker.io
-  sudo systemctl enable docker && sudo systemctl start docker
-  sudo usermod -aG docker ubuntu
-  # Pull LaTeX image now (large download, do this early)
-  sudo docker pull texlive/texlive:latest
+  sudo apt install -y python3.11 python3.11-venv nginx git
   ```
+  > **Optional:** install `texlive-latex-base` (~200 MB) for fully offline compilation. The code auto-falls back: Docker → local `pdflatex` → ytotech online API. You have been running on ytotech online the whole time locally.
 - [ ] Clone repo and set up Python env:
   ```bash
   git clone <repo-url> /home/ubuntu/careerforge
@@ -100,8 +97,7 @@ Before provisioning EC2, these code/config changes MUST be made:
   sudo tee /etc/systemd/system/careerforge.service > /dev/null <<EOF
   [Unit]
   Description=CareerForge API
-  After=network.target docker.service
-  Requires=docker.service
+  After=network.target
 
   [Service]
   User=ubuntu
@@ -191,7 +187,7 @@ Run through the complete demo flow on the deployed environment:
   | Bedrock (`us.anthropic.claude-sonnet-4-6` + Titan) | Resume gen, skill gap, tailoring, job analysis | ~$3.00 |
   | DynamoDB (9 tables, PAY_PER_REQUEST) | All structured data | ~$0 |
   | S3 (`careerforge-pdfs-602664593597`) | PDFs, .tex files, project summaries | ~$0.01 |
-  | EC2 t3.micro | API + LaTeX compiler (Docker) | ~$0 (free tier) |
+  | EC2 t3.micro | API server (LaTeX via ytotech free API) | ~$0 (free tier) |
   | Amplify | Next.js frontend hosting | ~$0 |
   | Secrets Manager | GitHub App private key | ~$0.01 |
   | **Total** | | **~$3–4** |
@@ -233,7 +229,9 @@ Run through the complete demo flow on the deployed environment:
 
 ## Critical Gotchas (found during codebase audit)
 
-1. **Docker is mandatory on EC2** — `latex_service.py` uses `texlive/texlive:latest` Docker container for PDF compilation. Without Docker, resume generation fails. Install Docker and add `ubuntu` user to `docker` group before starting the service.
+> **AWS CLI status:** `aws sts get-caller-identity` is confirmed working with profile `careerforge-dev` (account `602664593597`). All `aws` commands in this file will work as-is.
+
+1. **No Docker needed — LaTeX uses ytotech online API** — `latex_service.py` has a 3-level fallback: Docker → local `pdflatex` → `latex.ytotech.com` free API. Since neither Docker nor `pdflatex` is installed locally or on a fresh EC2, **it has been using ytotech all along**. This will continue to work on EC2 as long as outbound HTTPS is open (it is by default). If you want fully offline compilation, install `texlive-latex-base` (~200 MB): `sudo apt install -y texlive-latex-base texlive-fonts-recommended texlive-latex-extra`. No 4 GB Docker image required.
 
 2. **`SkillGapReports` table was NOT provisioned in M0** — M0 created 6 tables; M3 added a 7th (`SkillGapReports`). Create it manually before deploying (see step 6.0).
 
@@ -260,5 +258,5 @@ Run through the complete demo flow on the deployed environment:
 - EC2 IAM role is non-negotiable — never put AWS credentials in `.env` on the server.
 - Amplify auto-deploys on push — do not push broken code after the demo URL is shared.
 - Pre-populating demo data is non-negotiable. The scraper mock data is already built in — trigger `POST /api/jobs/scrape` once after deployment.
-- The `texlive/texlive:latest` pull is ~4GB. Do it as the very first step after SSH to EC2, while setting everything else up.
+- LaTeX compilation uses `latex.ytotech.com` free online API — no Docker, no local install, no 4 GB download. Just ensure EC2 security group allows outbound HTTPS (port 443), which AWS does by default.
 - `UserJobStatuses` and `BlacklistedCompanies` tables are auto-created on app startup via `ensure_job_scout_tables()` — no manual provisioning needed.
