@@ -42,7 +42,6 @@ Globals:
       Variables:
         DYNAMODB_TABLE: !Ref DynamoDBTable
         TOP_JOBS_COUNT: !Ref TopJobsCount
-        AWS_REGION:     !Ref AWS::Region
 
 # ── Resources ─────────────────────────────────────────────────────────────
 Resources:
