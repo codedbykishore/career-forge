@@ -118,14 +118,12 @@ function DashboardInner() {
   /* Handle OAuth callback query params */
   useEffect(() => {
     const github = searchParams.get('github');
-    const google = searchParams.get('google');
     const token = searchParams.get('token');
     const error = searchParams.get('error');
 
-    if (github === 'connected' || google === 'connected') {
+    if (github === 'connected') {
       if (token) localStorage.setItem('token', token);
-      const provider = github ? 'GitHub' : 'Google';
-      toast({ title: `${provider} connected!`, description: 'Your account is now linked.' });
+      toast({ title: 'GitHub connected!', description: 'Your account is now linked.' });
       router.replace('/dashboard');
     }
     if (error) {

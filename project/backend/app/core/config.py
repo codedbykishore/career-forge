@@ -5,7 +5,7 @@ Centralized settings management using Pydantic Settings.
 
 Secret loading order (highest priority wins):
 1. AWS Secrets Manager  — fetched at startup for JWT_SECRET_KEY, SECRET_KEY,
-                          GITHUB_APP_CLIENT_SECRET, COGNITO_APP_CLIENT_SECRET
+                          GITHUB_APP_CLIENT_SECRET
 2. Environment variables / .env file
 3. Hard-coded defaults   — only safe for non-secret config; never for prod secrets
 """
@@ -52,7 +52,6 @@ class Settings(BaseSettings):
     SM_JWT_SECRET_NAME: str = "careerforge/jwt-secret-key"
     SM_APP_SECRET_NAME: str = "careerforge/app-secret-key"
     SM_GITHUB_CLIENT_SECRET_NAME: str = "careerforge/github-app-client-secret"
-    SM_COGNITO_CLIENT_SECRET_NAME: str = "careerforge/cognito-app-client-secret"
     
     # AWS Bedrock
     BEDROCK_MODEL_ID: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -102,13 +101,6 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECRET: Optional[str] = None
     GITHUB_CALLBACK_URL: str = "http://localhost:3000/api/auth/callback/github"
-    
-    # AWS Cognito
-    COGNITO_USER_POOL_ID: str = "us-east-1_Mtxh0HEPD"
-    COGNITO_APP_CLIENT_ID: str = "2lac8ac29r2rnjbkk7q43p1hr2"
-    COGNITO_APP_CLIENT_SECRET: str = "1aq57hrhidldvmr7uoq66ei5eurbp007q4o9vci46dd3q1l1nohs"
-    COGNITO_DOMAIN: str = "careerforge.auth.us-east-1.amazoncognito.com"
-    COGNITO_CALLBACK_URL: str = "http://localhost:3000/api/auth/callback/cognito"
     
     # LinkedIn OAuth
     LINKEDIN_CLIENT_ID: Optional[str] = None
@@ -182,13 +174,6 @@ class Settings(BaseSettings):
                 val = _fetch_secret(sm, self.SM_GITHUB_CLIENT_SECRET_NAME)
                 if val:
                     object.__setattr__(self, "GITHUB_APP_CLIENT_SECRET", val)
-
-            # Cognito App client secret
-            _COGNITO_DEFAULT = "1aq57hrhidldvmr7uoq66ei5eurbp007q4o9vci46dd3q1l1nohs"
-            if self.COGNITO_APP_CLIENT_SECRET == _COGNITO_DEFAULT:
-                val = _fetch_secret(sm, self.SM_COGNITO_CLIENT_SECRET_NAME)
-                if val:
-                    object.__setattr__(self, "COGNITO_APP_CLIENT_SECRET", val)
 
             logger.debug("Secrets Manager: secret overrides applied")
 
