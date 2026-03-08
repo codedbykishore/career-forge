@@ -25,12 +25,14 @@ Parameters:
     Description: EventBridge schedule expression (UTC) for the daily digest
 
   RecipientEmails:
-    Type: CommaDelimitedList
+    Type: String
     Default: "krishnagoutham37@gmail.com,hiruviru18@gmail.com,kishorerose88@gmail.com"
-    Description: >
-      Comma-separated list of email addresses to subscribe to the SNS topic.
-      Each address will receive a confirmation email that must be accepted
-      before digest emails start arriving.
+    Description: Comma-separated list of recipient email addresses (must be SES-verified in sandbox)
+
+  FromEmail:
+    Type: String
+    Default: "krishnagoutham37@gmail.com"
+    Description: SES-verified sender address
 
 # ── Globals ───────────────────────────────────────────────────────────────
 Globals:
@@ -40,42 +42,13 @@ Globals:
     MemorySize: 256
     Environment:
       Variables:
-        DYNAMODB_TABLE: !Ref DynamoDBTable
-        TOP_JOBS_COUNT: !Ref TopJobsCount
+        DYNAMODB_TABLE:   !Ref DynamoDBTable
+        TOP_JOBS_COUNT:   !Ref TopJobsCount
+        RECIPIENT_EMAILS: !Ref RecipientEmails
+        FROM_EMAIL:       !Ref FromEmail
 
 # ── Resources ─────────────────────────────────────────────────────────────
 Resources:
-
-  # ── SNS Topic (email delivery) ──────────────────────────────────────────
-  DailyDigestTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: careerforge-daily-digest
-      DisplayName: "CareerForge Job Digest"
-
-  # ── Email subscriptions (one per address) ───────────────────────────────
-  # NOTE: Each subscriber will receive an AWS confirmation email.
-  #       Digest emails only start after the link in that email is clicked.
-  Subscription0:
-    Type: AWS::SNS::Subscription
-    Properties:
-      TopicArn: !Ref DailyDigestTopic
-      Protocol: email
-      Endpoint: !Select [0, !Ref RecipientEmails]
-
-  Subscription1:
-    Type: AWS::SNS::Subscription
-    Properties:
-      TopicArn: !Ref DailyDigestTopic
-      Protocol: email
-      Endpoint: !Select [1, !Ref RecipientEmails]
-
-  Subscription2:
-    Type: AWS::SNS::Subscription
-    Properties:
-      TopicArn: !Ref DailyDigestTopic
-      Protocol: email
-      Endpoint: !Select [2, !Ref RecipientEmails]
 
   # ── IAM Role for Lambda ──────────────────────────────────────────────────
   DigestFunctionRole:
@@ -96,16 +69,15 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # Read all jobs from DynamoDB (no userId filter — shared table)
               - Effect: Allow
                 Action:
                   - dynamodb:Scan
                 Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTable}"
-              # Publish the digest message to SNS
               - Effect: Allow
                 Action:
-                  - sns:Publish
-                Resource: !Ref DailyDigestTopic
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
 
   # ── Lambda Function ───────────────────────────────────────────────────────
   DigestFunction:
@@ -115,9 +87,6 @@ Resources:
       CodeUri: .
       Handler: handler.lambda_handler
       Role: !GetAtt DigestFunctionRole.Arn
-      Environment:
-        Variables:
-          SNS_TOPIC_ARN: !Ref DailyDigestTopic
       Events:
         DailyTrigger:
           Type: Schedule
@@ -129,14 +98,11 @@ Resources:
 
 # ── Outputs ───────────────────────────────────────────────────────────────
 Outputs:
-  DigestTopicArn:
-    Description: ARN of the SNS topic (save this if you want to publish manually)
-    Value: !Ref DailyDigestTopic
-
   DigestFunctionArn:
     Description: ARN of the daily digest Lambda function
     Value: !GetAtt DigestFunction.Arn
 
   DigestFunctionName:
     Description: Lambda function name (for manual test invocations)
+    Value: !Ref DigestFunction
     Value: !Ref DigestFunction

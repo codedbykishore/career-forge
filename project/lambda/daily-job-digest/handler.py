@@ -3,14 +3,14 @@ daily-job-digest/handler.py
 ---------------------------
 AWS Lambda — triggered nightly by EventBridge cron.
 Scans the DynamoDB `Jobs` table, picks the top N jobs by matchScore,
-formats a plain-text digest, and publishes it to an SNS Topic.
-SNS delivers the email to all subscribed addresses.
+formats a plain-text digest, and sends it via SES directly to all
+RECIPIENT_EMAILS — no SNS subscription confirmation required.
 
 Environment variables (set in Lambda console or SAM template):
-  DYNAMODB_TABLE   — DynamoDB table name           (default: Jobs)
-  SNS_TOPIC_ARN    — ARN of the SNS email topic    (required)
-  TOP_JOBS_COUNT   — Number of top jobs to include (default: 5)
-  AWS_REGION       — AWS region                    (default: us-east-1)
+  DYNAMODB_TABLE    — DynamoDB table name           (default: Jobs)
+  RECIPIENT_EMAILS  — comma-separated recipient list (required)
+  FROM_EMAIL        — verified SES sender address   (required)
+  TOP_JOBS_COUNT    — Number of top jobs to include (default: 5)
 """
 
 import json
@@ -23,10 +23,11 @@ import boto3
 from boto3.dynamodb.conditions import Attr
 
 # ── env vars ────────────────────────────────────────────────────────────────
-DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "Jobs")
-SNS_TOPIC_ARN  = os.environ.get("SNS_TOPIC_ARN", "")
-TOP_N          = int(os.environ.get("TOP_JOBS_COUNT", "5"))
-AWS_REGION     = os.environ.get("AWS_REGION", "us-east-1")
+DYNAMODB_TABLE   = os.environ.get("DYNAMODB_TABLE", "Jobs")
+RECIPIENT_EMAILS = [e.strip() for e in os.environ.get("RECIPIENT_EMAILS", "").split(",") if e.strip()]
+FROM_EMAIL       = os.environ.get("FROM_EMAIL", "")
+TOP_N            = int(os.environ.get("TOP_JOBS_COUNT", "5"))
+AWS_REGION       = os.environ.get("AWS_REGION", "us-east-1")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -141,37 +142,44 @@ def format_digest(jobs: list[dict]) -> tuple[str, str]:
 def lambda_handler(event: dict, context: Any) -> dict:
     """
     Entry point invoked by EventBridge scheduled rule.
-    event payload is ignored — digest always covers top N jobs overall.
+    Sends digest directly via SES — no SNS subscription confirmation needed.
     """
-    if not SNS_TOPIC_ARN:
-        raise EnvironmentError("SNS_TOPIC_ARN is not set. Cannot publish daily digest.")
+    if not FROM_EMAIL:
+        raise EnvironmentError("FROM_EMAIL is not set. Cannot send digest.")
+    if not RECIPIENT_EMAILS:
+        raise EnvironmentError("RECIPIENT_EMAILS is not set. Cannot send digest.")
 
     print(f"[daily-job-digest] region={AWS_REGION} table={DYNAMODB_TABLE} top_n={TOP_N}")
+    print(f"[daily-job-digest] recipients={RECIPIENT_EMAILS}")
 
     dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-    sns      = boto3.client("sns",        region_name=AWS_REGION)
+    ses      = boto3.client("ses",        region_name=AWS_REGION)
 
     jobs = fetch_top_jobs(dynamodb)
     print(f"[daily-job-digest] Fetched {len(jobs)} scored jobs")
 
     subject, body = format_digest(jobs)
-    print(f"[daily-job-digest] Publishing to SNS: subject='{subject}'")
+    print(f"[daily-job-digest] Sending via SES: subject='{subject}'")
 
-    response = sns.publish(
-        TopicArn=SNS_TOPIC_ARN,
-        Subject=subject,
-        Message=body,
+    response = ses.send_email(
+        Source=FROM_EMAIL,
+        Destination={"ToAddresses": RECIPIENT_EMAILS},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body":    {"Text": {"Data": body, "Charset": "UTF-8"}},
+        },
     )
 
     message_id = response.get("MessageId", "")
-    print(f"[daily-job-digest] Published. MessageId={message_id}")
+    print(f"[daily-job-digest] Sent. MessageId={message_id}")
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message"  : "Daily digest published to SNS",
-            "messageId": message_id,
-            "jobCount" : len(jobs),
-            "date"     : datetime.now(timezone.utc).isoformat(),
+            "message"   : "Daily digest sent via SES",
+            "messageId" : message_id,
+            "jobCount"  : len(jobs),
+            "recipients": RECIPIENT_EMAILS,
+            "date"      : datetime.now(timezone.utc).isoformat(),
         }),
     }
