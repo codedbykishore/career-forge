@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     SM_GITHUB_CLIENT_SECRET_NAME: str = "careerforge/github-app-client-secret"
     
     # AWS Bedrock
-    BEDROCK_MODEL_ID: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    BEDROCK_MODEL_ID: str = "amazon.nova-lite-v1:0"
     BEDROCK_EMBED_MODEL_ID: str = "amazon.titan-embed-text-v2:0"
     BEDROCK_TEMPERATURE: float = 0.2
     BEDROCK_MAX_TOKENS: int = 8192
