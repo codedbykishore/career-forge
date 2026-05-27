@@ -9,9 +9,12 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uuid
+import structlog
 
 from app.core.config import settings
 from app.core.security import decode_access_token
+
+logger = structlog.get_logger()
 
 
 security = HTTPBearer()
@@ -55,10 +58,7 @@ async def get_current_user(
             )
         
         if not user.get("isActive", True):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is disabled",
-            )
+            logger.warning("User account is marked inactive, allowing access anyway", user_id=user_id)
         
         # Return a dict-like object that mimics the SQLAlchemy User fields
         return DynamoUser(user)
@@ -89,10 +89,7 @@ async def get_current_user(
                 )
             
             if not user.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="User account is disabled",
-                )
+                logger.warning("User account is marked inactive (SQLite), allowing access anyway", user_id=user_id)
             
             return user
 
@@ -146,10 +143,7 @@ async def get_current_user_dynamo(
         )
     
     if not user.get("isActive", True):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is disabled",
-        )
+        logger.warning("User account is marked inactive (dynamo raw), allowing access anyway", user_id=user_id)
     
     return user
 
