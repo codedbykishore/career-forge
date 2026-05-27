@@ -182,7 +182,7 @@ function DashboardInner() {
         queryClient.prefetchQuery({ queryKey: ['skill-gap-roles'], queryFn: () => skillGapApi.getRoles().then(r => r.data.roles || []), staleTime: 60 * 60 * 1000 });
         break;
       case 'job-scout':
-        queryClient.prefetchQuery({ queryKey: ['job-scout-matches'], queryFn: () => jobMatchApi.list().then(r => r.data), staleTime: 30_000 });
+        queryClient.prefetchQuery({ queryKey: ['jobs', 'matches'], queryFn: () => jobMatchApi.list().then(r => r.data), staleTime: 30_000 });
         break;
     }
   }, [queryClient]);

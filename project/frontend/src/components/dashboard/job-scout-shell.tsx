@@ -200,6 +200,7 @@ function useCountdown(targetIso: string | null) {
 
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return '—';
+  if (typeof window === 'undefined') return '—'; // SSR fallback
   const diff = Date.now() - new Date(iso).getTime();
   if (diff < 60_000) return 'just now';
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
@@ -226,6 +227,7 @@ function formatPostedDate(
   // Prefer createdAt (has time); fall back to datePosted
   const src = createdAt || datePosted;
   if (!src || src === 'nan') return '—';
+  if (typeof window === 'undefined') return '—'; // SSR fallback
   const d = new Date(src);
   if (isNaN(d.getTime())) return datePosted && datePosted !== 'nan' ? datePosted : '—';
   const day = d.getDate();
