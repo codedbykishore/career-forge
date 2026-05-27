@@ -364,6 +364,7 @@ async def github_callback(
         if existing:
             user_id = existing[0]["userId"]
             update_fields = {
+                "isActive": True,
                 "githubToken": encrypted_token,
                 "githubUsername": github_user["login"],
                 "githubAvatarUrl": github_user.get("avatar_url"),
@@ -398,6 +399,7 @@ async def github_callback(
                 await dynamo_service.put_item("Users", new_user_item)
             # Store GitHub connection info on user record
             update_fields = {
+                "isActive": True,
                 "githubUserId": str(github_user["id"]),
                 "githubUsername": github_user["login"],
                 "githubAvatarUrl": github_user.get("avatar_url"),
